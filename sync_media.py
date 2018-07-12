@@ -116,11 +116,7 @@ def get_file(drive, path):
     return drive_file
 
 def file_exists(drive, path):
-    try:
-        get_file(drive, path)
-        return True
-    except ValueError:
-        return False
+    return get_file(drive, path) is not None
 
 def get_children(drive, drive_file):
     if not is_folder(drive_file):
@@ -131,34 +127,19 @@ def get_children(drive, drive_file):
 def is_folder(drive_file):
     return drive_file["mimeType"] == "application/vnd.google-apps.folder"
 
+# TODO(piyush) Extend to beyond just mr robot, and to do beyond just upload.
 if __name__ == "__main__":
-    drive = GoogleDrive(authenticate(CREDENTIALS_FILE))
-
-    drive_music_dir = get_file(drive, "/Patil Family/piyush/media/music")
-    music_files = get_children(drive, drive_music_dir)
-    music_file_name_to_file = {music_file["title"]: music_file for music_file in music_files}
-
-    local_music_dir = "/home/piyush/media/music"
-    local_music_file_names = set(os.listdir(local_music_dir))
-
     to_upload = []
-    for local_file_name in local_music_file_names:
-        local_file_path = os.path.join(local_music_dir, local_file_name)
-
-        if local_file_name not in music_file_name_to_file:
+    for dirpath, _, filenames in os.walk("/home/piyush/media/mr robot"):
+        for local_file_name in filenames:
+            local_file_path = os.path.join(dirpath, local_file_name)
             to_upload.append(local_file_path)
-        else:
-            remote_drive_file = music_file_name_to_file[local_file_name]
-
-            local_size = os.path.getsize(local_file_path)
-            remote_size = int(remote_drive_file["fileSize"])
-            if local_size != remote_size:
-                print("Found uploaded file, but sizes differ. Local: %i bytes, remote: %i bytes" % (local_size, remote_size))
 
     # Sort by ascending file size
     to_upload = sorted(to_upload, key = lambda file_path: os.path.getsize(file_path))
 
+    drive = GoogleDrive(authenticate(CREDENTIALS_FILE))
     for i, file_path in enumerate(to_upload):
-        _, file_name = os.path.split(file_path)
-        print("File %i/%i, uploading \"%s\"" % (i + 1, len(to_upload), file_name))
-        upload_file(drive, file_path, "/Patil Family/piyush/media/music/%s" % file_name)
+        rel_path = os.path.relpath(file_path, start="/home/piyush/media/mr robot")
+        print("File %i/%i, uploading \"%s\"" % (i + 1, len(to_upload), rel_path))
+        upload_file(drive, file_path, "/Patil Family/piyush/media/tv shows/mr robot/%s" % rel_path)
